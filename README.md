@@ -1,9 +1,15 @@
 # Northstar Finance
 
-A personal finance app with a Laravel API and a React dashboard. Track accounts,
-transactions and categories, review monthly spending, and set category budgets.
+I built Northstar Finance to make it easier to see where money is going. It's a
+personal finance app with a React dashboard and a Laravel API. You can track
+accounts and transactions, organize spending by category, and set monthly
+budgets.
 
-## What you need
+**Live demo:** [Northstar Finance](https://personal-finance-api-ewi1.onrender.com)
+
+## Getting started
+
+To run the project locally, you'll need:
 
 - PHP 8.3 or newer with `pdo_pgsql`, `pdo_sqlite`, `sqlite3`, `mbstring`,
   `openssl`, `curl`, `fileinfo`, `xml` and `zip` enabled
@@ -11,23 +17,27 @@ transactions and categories, review monthly spending, and set category budgets.
 - Node.js 20.19+ or 22.12+ and npm
 - A Supabase PostgreSQL database (or another PostgreSQL server)
 
-`pdo_sqlite` and `sqlite3` are used for the automated tests. Supabase supplies
-the PostgreSQL database; the browser talks to Laravel, not directly to Supabase.
+I use `pdo_sqlite` and `sqlite3` for the automated tests. Supabase provides the
+PostgreSQL database, and the browser talks to Laravel rather than connecting
+directly to Supabase.
 
 ## Run locally
 
-1. Copy `backend/.env.example` to `backend/.env`. Generate a fresh app key:
+1. Install the backend dependencies. For a new installation, copy the example
+   environment file and generate an app key:
 
    ```powershell
    cd backend
    composer install
-   if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-   php artisan key:generate
+   if (-not (Test-Path .env)) {
+       Copy-Item .env.example .env
+       php artisan key:generate
+   }
    ```
 
-   The copy command leaves an existing `.env` alone. Keep passwords in `.env`,
-   never in `.env.example` or git. Do not regenerate the app key for an
-   existing installation without understanding the impact on encrypted data.
+   This leaves an existing `.env` and app key alone. Keep passwords in `.env`,
+   never in `.env.example` or Git. Don't regenerate an existing app key without
+   understanding the impact on encrypted data.
 
 2. In `backend/.env`, enter the PostgreSQL host, port, database name, username
    and password. Supabase's **Connect** panel provides these; use the session
@@ -53,27 +63,29 @@ the PostgreSQL database; the browser talks to Laravel, not directly to Supabase.
    npm run dev
    ```
 
-   Visit the Vite URL shown in the terminal, usually `http://localhost:5173`.
-   The Vite development server proxies `/api` requests to `127.0.0.1:8000`.
-   The production container serves the frontend and API from the same origin.
+   Open the Vite URL shown in the terminal, usually `http://localhost:5173`.
+   I configured Vite to send `/api` requests to `127.0.0.1:8000` during
+   development. The deployed container serves the frontend and API from the
+   same origin.
 
-Use the theme switch on the sign-in screen or in the dashboard sidebar to
-change the theme. Your choice is saved in this browser.
+I added a theme switch on the sign-in screen and in the dashboard sidebar.
+Your light or dark preference is saved in the browser.
 
-Choose **Continue as guest** to use an empty workspace without an account or
-API connection. Guest accounts, transactions, categories and budgets stay in
-the current browser tab's session storage. They survive a refresh and are
-deleted when you leave guest mode. Closing a tab normally clears its session,
-but browser session-restore features may restore it; duplicated tabs can also
-start with a copy. Guest data is not transferred to a registered account.
-Avoid entering sensitive data on shared devices.
+I also made it possible to choose **Continue as guest** and start with an empty
+workspace, without an account or API connection. Guest accounts, transactions,
+categories and budgets stay in the current tab's session storage. They survive
+a refresh and are deleted when you leave guest mode. Closing a tab normally
+clears its session, but browser session-restore features may restore it;
+duplicated tabs can also start with a copy. Guest data isn't transferred to a
+registered account, so avoid entering sensitive data on shared devices.
 
 ## Render demo deployment
 
-The root `Dockerfile` builds the React app and serves it alongside Laravel.
-Create a Render Docker web service from the desired GitHub branch, with the
-repository root as its build context and `/api/health` as its health check.
-Set these environment variables in Render, not in Git:
+I deployed the demo on Render using the root `Dockerfile` to build React and
+serve it alongside Laravel. To set up your own deployment, create a Render
+Docker web service from your chosen GitHub branch. Use the repository root as
+the build context and `/api/health` as the health check. Set these environment
+variables in Render, not in Git:
 
 - `APP_ENV=production`, `APP_DEBUG=false`, and `APP_URL` to the Render HTTPS URL.
 - `APP_KEY` to a new key generated privately with `php artisan key:generate --show`
@@ -84,11 +96,12 @@ Set these environment variables in Render, not in Git:
 - `LOG_CHANNEL=stderr`, `CACHE_STORE=database`, `SESSION_DRIVER=database`,
   and `QUEUE_CONNECTION=database`.
 
-The service does not run migrations automatically. Review the target database
-and apply migrations deliberately before deployment; never use `migrate:fresh`
-on data you need to keep. Database access restrictions and Laravel
-authorization still matter: disabling debug mode does not secure a database.
-This is a demo deployment, not a production security or backup strategy.
+I don't run migrations automatically when the service starts. Review the
+target database and apply migrations deliberately before deployment; never use
+`migrate:fresh` on data you need to keep. Database access restrictions and
+Laravel authorization still matter: disabling debug mode doesn't secure a
+database. This is a demo deployment, not a production security or backup
+strategy.
 
 ## Tests
 
@@ -97,7 +110,8 @@ cd backend
 php artisan test
 ```
 
-Tests use an in-memory SQLite database, not your Supabase database.
+I run the backend tests against an in-memory SQLite database, so they don't
+use your Supabase database.
 
 The frontend tests require Node.js 22.12 or newer.
 
@@ -127,7 +141,7 @@ token in `Authorization: Bearer <token>` for protected endpoints.
 | `GET /summary?month=2026-11` | Get income, expenses, net and spending by category |
 | `GET /budgets?month=2026-11`, `POST /budgets`, `DELETE /budgets/{id}` | List, set or delete monthly category budgets |
 
-Registration returns HTTP 201 and a user and token:
+When you register, the API returns HTTP 201 with a user and token:
 
 ```json
 {"data":{"user":{"id":1,"name":"Alex","email":"alex@example.com"},"token":"example-token"}}
@@ -154,10 +168,11 @@ balances can be negative. To record a transaction:
 {"category_id":1,"month":"2026-11","amount_cents":20000}
 ```
 
-Setting a budget again for the same category and month updates the limit.
-Amounts are positive integer cents; for example, `1234` means $12.34.
-Balance is starting balance plus income minus expenses. Monthly summaries
-and budget progress use transaction dates, and only expenses count as spending.
+I made saving a budget again for the same category and month update its limit.
+I represent amounts as integer cents to avoid floating-point arithmetic; for
+example, `1234` means $12.34. An account balance is its starting balance plus
+income minus expenses. Monthly summaries and budget progress use transaction
+dates, and only expenses count as spending.
 
 Successful responses use `{"data": ...}`. Invalid input returns HTTP 422:
 
@@ -170,13 +185,13 @@ exposed and return 404 where applicable. Login is rate limited.
 
 ## Notes
 
-The dashboard stores its bearer token in browser local storage for this MVP.
+For this MVP, I store the dashboard's bearer token in browser local storage.
 Use a trusted device; a production app needs a fuller security and deployment
-review. Bank integrations, investments, payments and financial advice are not
-included. See [the data model](docs/data-model.md) and
+review. I haven't included bank integrations, investments, payments or
+financial advice. See [the data model](docs/data-model.md) and
 [development setup](docs/setup.md) for more detail.
 
-The PostgreSQL security migration enables row-level security and revokes
+I added a PostgreSQL security migration that enables row-level security and revokes
 Supabase `anon` and `authenticated` access to the existing Laravel tables.
 Laravel uses its own database role, which must retain the required privileges
 and be able to access those tables under the configured RLS rules. Direct
