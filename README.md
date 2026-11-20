@@ -55,11 +55,32 @@ the PostgreSQL database; the browser talks to Laravel, not directly to Supabase.
 
    Visit the Vite URL shown in the terminal, usually `http://localhost:5173`.
    The Vite development server proxies `/api` requests to `127.0.0.1:8000`.
-   The production build needs a same-origin API proxy or separate deployment
-   configuration; deployment is outside this MVP.
+   The production container serves the frontend and API from the same origin.
 
 Use the theme switch on the sign-in screen or in the dashboard sidebar to
 change the theme. Your choice is saved in this browser.
+
+## Render demo deployment
+
+The root `Dockerfile` builds the React app and serves it alongside Laravel.
+Create a Render Docker web service from the desired GitHub branch, with the
+repository root as its build context and `/api/health` as its health check.
+Set these environment variables in Render, not in Git:
+
+- `APP_ENV=production`, `APP_DEBUG=false`, and `APP_URL` to the Render HTTPS URL.
+- `APP_KEY` to a new key generated privately with `php artisan key:generate --show`
+  from the `backend` directory. Keep the same key across deployments.
+- `DB_CONNECTION=pgsql`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`,
+  `DB_PASSWORD`, and `DB_SSLMODE=require` for the intended Supabase database.
+  Use the session pooler if needed for IPv4 connectivity.
+- `LOG_CHANNEL=stderr`, `CACHE_STORE=database`, `SESSION_DRIVER=database`,
+  and `QUEUE_CONNECTION=database`.
+
+The service does not run migrations automatically. Review the target database
+and apply migrations deliberately before deployment; never use `migrate:fresh`
+on data you need to keep. Database access restrictions and Laravel
+authorization still matter: disabling debug mode does not secure a database.
+This is a demo deployment, not a production security or backup strategy.
 
 ## Tests
 
