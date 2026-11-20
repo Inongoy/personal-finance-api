@@ -53,9 +53,11 @@ class AuthController extends Controller
     {
         $token = $request->user()->currentAccessToken();
 
-        if ($token instanceof PersonalAccessToken) {
-            $token->delete();
+        if (! $token instanceof PersonalAccessToken) {
+            return ApiResponse::error('A bearer token is required to log out.', 401);
         }
+
+        $token->delete();
 
         return ApiResponse::success(['message' => 'Logged out successfully.']);
     }

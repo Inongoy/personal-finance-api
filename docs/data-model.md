@@ -2,7 +2,7 @@
 
 ## Tables
 
-There are four main tables: users, accounts, categories, and transactions.
+There are five main tables: users, accounts, categories, transactions, and budgets.
 
 ### users
 
@@ -52,12 +52,29 @@ Labels like Groceries, Rent, or Salary.
 | description | string | Optional |
 | created_at, updated_at | timestamp | |
 
+### budgets
+
+A monthly spending limit for one category.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigint | Primary key |
+| user_id | bigint | Foreign key to users, required |
+| category_id | bigint | Foreign key to categories, required |
+| month | date | First day of the budget month |
+| amount_cents | bigint | Positive spending limit |
+| created_at, updated_at | timestamp | |
+
+There is one budget per user, category, and month. Saving another budget for
+the same combination updates its limit. Deleting a category deletes its budgets.
+
 ## Relationships
 
 - A user has many accounts, categories, and transactions.
 - An account belongs to one user and has many transactions.
 - A category belongs to one user and has many transactions.
 - A transaction belongs to one user, one account, and optionally one category.
+- A budget belongs to one user and one category.
 
 ```
 users 1 ---- * accounts 1 ---- * transactions * ---- 0..1 categories
@@ -94,13 +111,12 @@ balance = starting_balance_cents + total income - total expenses
 - Deleting a category does not delete transactions. Their `category_id` is set
   to null instead.
 - `amount_cents` must be greater than 0 (check constraint).
+- Budget amounts must be greater than 0 (PostgreSQL check constraint).
 - `type` must be `income` or `expense` (check constraint).
 - `email` is unique on users, and `name` is unique per user on categories.
 - A transaction's account and category must belong to the same user as the
   transaction. The database cannot easily check this, so the API validates it
   (issue #11).
 
-## Not included yet
-
-Budgets are in the project stack, but they are not part of the MVP scope, so
-there is no budgets table for now.
+Budget progress is the sum of expense transactions for that category and month.
+Income does not reduce spending.

@@ -16,6 +16,7 @@ and transactions and understand their spending.
 | 5 | See account balances and a monthly spending summary | Balance is calculated from transactions; the summary totals spending per month and per category |
 | 6 | Access only my own financial data | Requests for another user's records are rejected |
 | 7 | Get consistent validation errors | Every invalid request returns the same error JSON shape with HTTP 422 |
+| 8 | Set monthly category budgets | I can set a limit and see expenses against it for a selected month |
 
 ## Non-functional requirements
 

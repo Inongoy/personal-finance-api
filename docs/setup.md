@@ -1,23 +1,22 @@
 # Development Setup
 
-This guide gets the project running on a new machine. The Laravel API and the
-React app are not created yet, so the later sections describe the plan. They
-will be updated as each part is built.
+This guide gets the project running on a new machine. The README has the
+complete setup and API examples.
 
 ## Prerequisites
 
 | Tool | Version | Used for |
 |------|---------|----------|
 | Git | any recent version | Version control |
-| PHP | 8.2 or newer | Running Laravel |
+| PHP | 8.3 or newer | Running Laravel |
 | Composer | 2.x | Installing PHP packages |
-| Node.js | 20 or newer | Running the React app |
+| Node.js | 20.19+ or 22.12+ | Running the React app |
 | npm | comes with Node | Installing JavaScript packages |
 | Supabase account | free tier | Hosted PostgreSQL database |
 
-The PHP extensions Laravel needs are `pdo_pgsql`, `pgsql`, `mbstring`,
-`openssl`, `tokenizer`, `xml`, `ctype` and `fileinfo`. `pdo_pgsql` is the one
-that lets PHP talk to PostgreSQL, so make sure it is turned on.
+The PHP extensions include `pdo_pgsql`, `pdo_sqlite`, `sqlite3`, `mbstring`,
+`openssl`, `curl`, `zip`, `tokenizer`, `xml`, `ctype` and `fileinfo`.
+`pdo_pgsql` connects to PostgreSQL; SQLite is used by tests.
 
 ### Check what you have installed
 
@@ -48,22 +47,21 @@ cd personal-finance-api
 ## Database (Supabase)
 
 1. Create a project at https://supabase.com.
-2. Open Project Settings, then Database, and copy the connection details
-   (host, port, database name, user, password).
+2. Open the Connect panel and copy the session pooler or direct connection
+   details (host, port, database name and user).
 3. Keep these private. They go in `backend/.env`, which is ignored by git.
 
 ## Backend setup
 
-These commands will work once the Laravel project exists (issue #5).
-
-```
+```powershell
 cd backend
 composer install
-cp .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 php artisan key:generate
 ```
 
-Then fill in the `DB_*` values in `.env` with your Supabase details and run:
+If `.env` already exists, don't overwrite it. Fill in the `DB_*` values in
+`.env` with your Supabase details, review the target database, and run:
 
 ```
 php artisan migrate
@@ -73,8 +71,6 @@ php artisan serve
 The API runs at http://localhost:8000.
 
 ## Frontend setup
-
-These commands will work once the React project exists (issue #14).
 
 ```
 cd frontend

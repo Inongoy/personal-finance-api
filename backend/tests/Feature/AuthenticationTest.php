@@ -62,7 +62,7 @@ class AuthenticationTest extends TestCase
 
     public function test_login_rejects_invalid_credentials(): void
     {
-        User::factory()->create(['password' => 'password-123']);
+        User::factory()->create(['email' => 'taylor@example.com', 'password' => 'password-123']);
 
         $response = $this->postJson('/api/login', [
             'email' => 'taylor@example.com',
@@ -74,6 +74,23 @@ class AuthenticationTest extends TestCase
                 'message' => 'Invalid email or password.',
                 'errors' => [],
             ]);
+    }
+
+    public function test_login_is_rate_limited_with_an_api_error(): void
+    {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/login', [
+                'email' => 'taylor@example.com',
+                'password' => 'wrong-password',
+            ])->assertUnauthorized();
+        }
+
+        $this->postJson('/api/login', [
+            'email' => 'taylor@example.com',
+            'password' => 'wrong-password',
+        ])->assertStatus(429)
+            ->assertJsonStructure(['message', 'errors'])
+            ->assertHeader('Retry-After');
     }
 
     public function test_user_can_log_out_and_invalidate_their_token(): void

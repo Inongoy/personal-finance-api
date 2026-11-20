@@ -1,0 +1,20 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Budget extends Model
+{
+    protected $fillable = ['category_id', 'month', 'amount_cents'];
+
+    protected function casts(): array
+    {
+        return ['amount_cents' => 'integer'];
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+}
