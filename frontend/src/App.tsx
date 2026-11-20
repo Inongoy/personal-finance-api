@@ -2,13 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowDownLeft, ArrowUpRight, BarChart3, CalendarDays, CircleDollarSign, CreditCard, LayoutDashboard, LogOut, Moon, Plus, ReceiptText, Sun, Target, Wallet, X } from 'lucide-react'
 import { ApiError, readApiResponse } from './api'
+import { deleteGuest, emptyGuest, guestKey, guestView, saveGuest, toCents } from './guest'
+import type { Account, Budget, Category, GuestData, Summary, Transaction } from './guest'
 
 type User = { id: number; name: string; email: string }
-type Account = { id: number; name: string; type: string; balance_cents: number; starting_balance_cents: number }
-type Category = { id: number; name: string }
-type Transaction = { id: number; account_id: number; category_id: number | null; type: 'income' | 'expense'; amount_cents: number; date: string; description: string | null; account: Account; category: Category | null }
-type Budget = { id: number; category_id: number; category: Category; amount_cents: number; spent_cents: number }
-type Summary = { income_cents: number; expense_cents: number; net_cents: number; categories: { id: number | null; name: string | null; total_cents: number }[] }
 type AuthResponse = { user: User; token: string }
 type Page = 'overview' | 'transactions' | 'accounts' | 'budgets'
 
@@ -20,14 +17,6 @@ const currentMonth = () => {
 function money(cents: number) {
   const value = Math.abs(cents)
   return `${cents < 0 ? '-' : ''}$${Math.floor(value / 100).toLocaleString('en-US')}.${String(value % 100).padStart(2, '0')}`
-}
-
-function toCents(value: string) {
-  if (!/^\d{1,8}(\.\d{1,2})?$/.test(value)) throw new Error('Enter a valid amount with up to two decimal places.')
-  const [whole, fraction = ''] = value.split('.')
-  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, '0'))
-  if (cents > 2000000000) throw new Error('Amount is too large.')
-  return cents
 }
 
 function chartBackground(summary: Summary | null) {
@@ -59,7 +48,19 @@ async function api<T>(path: string, token: string, options: RequestInit = {}): P
 const request = (method: string, data?: object): RequestInit => ({ method, ...(data ? { body: JSON.stringify(data) } : {}) })
 
 function App() {
-  const [token, setToken] = useState(() => localStorage.getItem('finance-token') || '')
+  const [guestSession] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(guestKey)
+      if (!saved) return { data: null, error: '' }
+      const data: GuestData = JSON.parse(saved)
+      if (!data || !Array.isArray(data.accounts) || !Array.isArray(data.categories) || !Array.isArray(data.transactions) || !Array.isArray(data.budgets) || !Number.isSafeInteger(data.nextId)) throw new Error('Invalid guest session')
+      return { data, error: '' }
+    } catch {
+      return { data: null, error: 'Could not restore guest data from this tab. Check your browser storage settings.' }
+    }
+  })
+  const [token, setToken] = useState(() => guestSession.data ? '' : localStorage.getItem('finance-token') || '')
+  const [guest, setGuest] = useState<GuestData | null>(guestSession.data)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => localStorage.getItem('finance-theme') === 'light' ? 'light' : 'dark')
   const [user, setUser] = useState<User | null>(null)
   const [page, setPage] = useState<Page>('overview')
@@ -69,7 +70,7 @@ function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [summary, setSummary] = useState<Summary | null>(null)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(guestSession.error)
   const [notice, setNotice] = useState('')
   const [loading, setLoading] = useState(Boolean(token))
   const [modal, setModal] = useState<'transaction' | 'account' | 'category' | 'budget' | null>(null)
@@ -96,6 +97,18 @@ function App() {
   }, [])
 
   const refresh = useCallback(async () => {
+    if (guest) {
+      try {
+        const view = guestView(guest, month)
+        setUser({ id: 0, name: 'Guest', email: '' })
+        setAccounts(view.accounts); setCategories(view.categories); setTransactions(view.transactions)
+        setBudgets(view.budgets); setSummary(view.summary); setLoading(false)
+      } catch {
+        setError('Could not read the guest data saved in this tab.')
+        setLoading(false)
+      }
+      return
+    }
     if (!token) return
     const currentRequest = ++requestId.current
     try {
@@ -122,7 +135,7 @@ function App() {
     } finally {
       if (currentRequest === requestId.current) setLoading(false)
     }
-  }, [token, month, clearData])
+  }, [token, month, clearData, guest])
 
   useEffect(() => { void refresh() }, [refresh])
 
@@ -141,6 +154,18 @@ function App() {
   }
 
   async function logout() {
+    if (guest) {
+      if (!window.confirm('Leave guest mode? All guest data in this tab will be deleted.')) return
+      try {
+        sessionStorage.removeItem(guestKey)
+        requestId.current++
+        setGuest(null); setUser(null); clearData(); setPage('overview'); setLoading(false)
+        setError(''); setNotice(''); setRegister(false)
+      } catch {
+        setError('Could not clear guest data. Check your browser storage settings.')
+      }
+      return
+    }
     try {
       await api('/logout', token, request('POST'))
       requestId.current++
@@ -155,6 +180,12 @@ function App() {
     const form = new FormData(event.currentTarget)
     setError('')
     try {
+      if (guest && modal) {
+        const next = saveGuest(guest, modal, form, month, editing?.id)
+        sessionStorage.setItem(guestKey, JSON.stringify(next))
+        setGuest(next); setModal(null); setEditing(null); setNotice('Saved for this tab.'); setLoading(true)
+        return
+      }
       if (modal === 'account') {
         const sign = form.get('negative') ? -1 : 1
         await api('/accounts', token, request('POST', { name: form.get('name'), type: form.get('type'), starting_balance_cents: sign * toCents(String(form.get('amount'))) }))
@@ -175,6 +206,14 @@ function App() {
 
   async function remove(path: string) {
     if (!window.confirm('Are you sure you want to delete this?')) return
+    if (guest) {
+      try {
+        const next = deleteGuest(guest, path)
+        sessionStorage.setItem(guestKey, JSON.stringify(next))
+        setGuest(next); setNotice('Deleted successfully.'); setLoading(true)
+      } catch (problem) { setError(problem instanceof Error ? problem.message : 'Could not delete this item.') }
+      return
+    }
     try { await api(path, token, request('DELETE')); setNotice('Deleted successfully.'); setLoading(true); await refresh() }
     catch (problem) { setError(problem instanceof Error ? problem.message : 'Could not delete this item.') }
   }
@@ -189,7 +228,7 @@ function App() {
     { id: 'budgets' as const, label: 'Budgets', icon: Target },
   ]
 
-  if (!token) return (
+  if (!token && !guest) return (
     <main className="auth-page" data-theme={theme}>
       <div className="auth-intro"><div className="brand-mark"><CircleDollarSign size={25} /></div><p className="eyebrow">YOUR MONEY, MADE CLEAR</p><h1>A little clarity goes a long way.</h1><p>Keep track of your accounts, understand your spending, and make room for what matters.</p></div>
       <div className="auth-card">
@@ -204,6 +243,16 @@ function App() {
           <button className="primary" type="submit">{register ? 'Create account' : 'Sign in'} <ArrowUpRight size={17} /></button>
         </form>
         <p className="auth-switch">{register ? 'Already have an account?' : 'New here?'} <button onClick={() => { setRegister(!register); setError('') }}>{register ? 'Sign in' : 'Create an account'}</button></p>
+        <button type="button" className="secondary guest-button" onClick={() => {
+          try {
+            const data = emptyGuest()
+            sessionStorage.setItem(guestKey, JSON.stringify(data))
+            setGuest(data); setError(''); setNotice('Guest mode: data stays in this tab and is cleared when you leave.'); setLoading(true)
+          } catch {
+            setError('Could not start guest mode. Check your browser storage settings.')
+          }
+        }}>Continue as guest</button>
+        <p className="muted guest-description">Guest data stays in this browser tab. Leave guest mode to delete it; browsers may restore closed tabs.</p>
       </div>
     </main>
   )
@@ -215,12 +264,13 @@ function App() {
         <p className="side-label">YOUR WORKSPACE</p>
         <nav aria-label="Main navigation">{nav.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => setPage(id)} className={page === id ? 'nav-item active' : 'nav-item'}><Icon size={18} />{label}</button>)}</nav>
         <div className="sidebar-theme"><ThemeToggle theme={theme} onToggle={toggleTheme} /></div>
-        <div className="side-footer"><div className="avatar">{user?.name?.slice(0, 1).toUpperCase() || 'U'}</div><div className="side-user"><strong>{user?.name || 'Your account'}</strong><span>Personal workspace</span></div><button className="icon-button" aria-label="Log out" onClick={() => void logout()}><LogOut size={18} /></button></div>
+        <div className="side-footer"><div className="avatar">{user?.name?.slice(0, 1).toUpperCase() || 'U'}</div><div className="side-user"><strong>{guest ? 'Guest' : user?.name || 'Your account'}</strong><span>{guest ? 'Temporary workspace' : 'Personal workspace'}</span></div><button className="icon-button" aria-label={guest ? 'Leave guest mode' : 'Log out'} onClick={() => void logout()}><LogOut size={18} /></button></div>
       </aside>
       <main className="main">
         <header className="topbar"><div><p className="eyebrow">PERSONAL FINANCE / {page.toUpperCase()}</p><h1>{page === 'overview' ? `Good to see you${user ? `, ${user.name.split(' ')[0]}` : ''}.` : nav.find((item) => item.id === page)?.label}</h1><p className="muted">{page === 'overview' ? 'Here’s what your money is up to.' : 'Keep everything in one clear place.'}</p></div><div className="top-actions"><label className="month-picker"><CalendarDays size={16} /><span className="sr-only">Select month</span><input type="month" value={month} onChange={(event) => { setMonth(event.target.value); setSummary(null); setBudgets([]); setLoading(true); setError('') }} /></label><button className="primary" onClick={() => { setEditing(null); setModal('transaction') }}><Plus size={17} /> Add transaction</button></div></header>
         {error && <div role="alert" className="alert">{error}</div>}
         {notice && <div role="status" className="notice">{notice}<button onClick={() => setNotice('')} aria-label="Dismiss"><X size={15} /></button></div>}
+        {guest && <p className="muted">Guest mode: data is temporary and stays in this browser tab.</p>}
         {loading && <p className="muted">Refreshing your data...</p>}
         {page === 'overview' && <>
           <section className="metrics"><Metric label="TOTAL BALANCE" value={user ? money(totalBalance) : '—'} icon={<Wallet size={18} />} note={`${accounts.length} accounts`} /><Metric label="INCOME THIS MONTH" value={summary ? money(summary.income_cents) : '—'} icon={<ArrowDownLeft size={18} />} note="Money coming in" /><Metric label="SPENT THIS MONTH" value={summary ? money(summary.expense_cents) : '—'} icon={<ArrowUpRight size={18} />} note="Across all categories" /><Metric label="NET THIS MONTH" value={summary ? money(summary.net_cents) : '—'} icon={<BarChart3 size={18} />} note="Income minus spending" /></section>

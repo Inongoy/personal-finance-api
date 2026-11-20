@@ -60,6 +60,14 @@ the PostgreSQL database; the browser talks to Laravel, not directly to Supabase.
 Use the theme switch on the sign-in screen or in the dashboard sidebar to
 change the theme. Your choice is saved in this browser.
 
+Choose **Continue as guest** to use an empty workspace without an account or
+API connection. Guest accounts, transactions, categories and budgets stay in
+the current browser tab's session storage. They survive a refresh and are
+deleted when you leave guest mode. Closing a tab normally clears its session,
+but browser session-restore features may restore it; duplicated tabs can also
+start with a copy. Guest data is not transferred to a registered account.
+Avoid entering sensitive data on shared devices.
+
 ## Render demo deployment
 
 The root `Dockerfile` builds the React app and serves it alongside Laravel.
