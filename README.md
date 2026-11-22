@@ -7,6 +7,32 @@ budgets.
 
 **Live demo:** [Northstar Finance](https://personal-finance-api-ewi1.onrender.com)
 
+## Wireframes
+
+These are the wireframes I used to design the dashboard.
+
+### Sign in
+
+![Sign in](docs/wireframes/01-sign-in.jpeg)
+
+### Overview
+
+![Overview, empty workspace](docs/wireframes/02-overview-empty.png)
+
+![Overview with activity](docs/wireframes/03-overview-with-activity.png)
+
+### Transactions
+
+![Transactions](docs/wireframes/04-transactions.jpeg)
+
+### Accounts
+
+![Accounts](docs/wireframes/05-accounts.jpeg)
+
+### Budgets
+
+![Budgets](docs/wireframes/06-budgets.jpeg)
+
 ## Getting started
 
 To run the project locally, you'll need:
